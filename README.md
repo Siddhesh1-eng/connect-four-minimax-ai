@@ -9,9 +9,6 @@ The project uses HTML, CSS and JavaScript. To run it, you only need a web browse
 ## Student details
 
 - **Name:** Siddhesh Singh Parmar
-- **Registration number:** 2427030221
-- **Section:** E
-- **Programme:** B.Tech CSE Core
 - **Subject:** Artificial Intelligence and Soft Computing (AISC)
 
 ## Project objectives
@@ -242,6 +239,5 @@ Some possible improvements would be to add a more detailed check for playable th
 ---
 
 **Siddhesh Singh Parmar**  
-B.Tech CSE Core, Section E  
-Registration No.: 2427030221  
+B.Tech CSE Core  
 Artificial Intelligence and Soft Computing (AISC)
