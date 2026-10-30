@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect Four — Minimax + Alpha-Beta</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f1e9;
+      --panel: #fffdf8;
+      --panel-2: #f7f3e9;
+      --line: #d9d2c5;
+      --muted: #6e7882;
+      --text: #202b36;
+      --cyan: #2b7775;
+      --red: #d84f5b;
+      --yellow: #f0bd42;
+      --blue: #245aa4;
+      --green: #41815a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    button, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { max-width: 1380px; margin: 0 auto; padding: 22px clamp(14px, 3vw, 34px) 30px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { display: grid; grid-template-columns: repeat(2, 9px); gap: 4px; padding: 10px; border-radius: 10px; background: #244f83; border: 1px solid #173f70; }
+    .brand-mark span { display: block; width: 9px; height: 9px; border-radius: 50%; background: #fffaf0; }
+    .brand-mark span:nth-child(2) { background: var(--yellow); }
+    .brand-mark span:nth-child(3) { background: var(--red); }
+    .eyebrow { color: var(--cyan); text-transform: uppercase; font-size: 10px; letter-spacing: .13em; font-weight: 800; }
+    .brand-name { margin-top: 4px; font-size: 14px; font-weight: 750; letter-spacing: .01em; }
+    .top-badge { display: flex; align-items: center; gap: 8px; color: #3e555f; font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; background: #fffdf8; }
+    .pulse { width: 7px; height: 7px; display: inline-block; flex: 0 0 auto; border-radius: 50%; background: var(--green); }
+    .page-title { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 330px); align-items: center; gap: 22px; margin-bottom: 22px; }
+    h1 { margin: 6px 0 8px; font-size: clamp(32px, 4vw, 47px); line-height: 1.05; letter-spacing: -.04em; font-weight: 800; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; max-width: 690px; }
+    .title-chip { display: inline-block; margin-top: 13px; border: 1px solid #c8d9d5; background: #e8f0ec; color: #285e5b; padding: 8px 11px; border-radius: 7px; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+    .student-card { padding: 14px 16px; background: #fffdf8; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 10px; }
+    .student-card-title { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing: .13em; font-weight: 800; margin-bottom: 5px; }
+    .student-name { font-size: 15px; line-height: 1.35; font-weight: 800; margin-bottom: 10px; }
+    .student-details { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 12px; }
+    .student-detail { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .student-detail.programme { grid-column: 1 / -1; }
+    .student-detail span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+    .student-detail strong { font-size: 11px; font-weight: 750; overflow-wrap: anywhere; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(310px, .82fr); gap: 18px; align-items: start; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 3px 8px #43351a0a; }
+    .game-panel { padding: clamp(14px, 2.2vw, 23px); }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+    .section-head h2 { margin: 0; font-size: 14px; letter-spacing: -.01em; }
+    .section-kicker { color: var(--muted); text-transform: uppercase; letter-spacing: .09em; font-size: 9px; font-weight: 800; }
+    .turn-label { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--line); font-size: 11px; color: #3d4d59; background: #f7f4ed; }
+    .turn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+    .turn-label.ai .turn-dot { background: #d49a17; }
+    .turn-label.thinking .turn-dot { background: var(--cyan); animation: blink .75s infinite alternate; }
+    @keyframes blink { to { opacity: .35; } }
+    .scoreboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 14px; }
+    .score-card { background: #f8f5ee; border: 1px solid #e3dccf; padding: 10px 12px; border-radius: 9px; min-width: 0; }
+    .score-card .label { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+    .score-card .value { font-size: 23px; line-height: 1.25; font-weight: 800; margin-top: 3px; }
+    .score-card.human .value { color: var(--red); }
+    .score-card.ai .value { color: #ad7a0f; }
+    .score-card.draw .value { color: var(--cyan); }
+    .status { min-height: 42px; display: flex; align-items: center; gap: 9px; margin: 0 0 13px; padding: 10px 12px; border: 1px solid #d7e2dc; border-radius: 8px; background: #eef4ef; color: #3d5551; font-size: 12px; line-height: 1.45; }
+    .status strong { color: #203d39; }
+    .column-picks { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin: 0 5px 8px; }
+    .column-btn { height: 32px; border-radius: 6px; background: #f5f1e8; border: 1px solid #ded5c5; color: #53616d; font-size: 11px; font-weight: 800; transition: background .15s ease, border-color .15s ease; }
+    .column-btn:hover:not(:disabled), .column-btn:focus-visible { background: #e4eee9; border-color: var(--cyan); color: #214d4b; outline: none; }
+    .column-btn:disabled { cursor: not-allowed; opacity: .4; }
+    .board-wrap { background: #245aa4; border: 3px solid #1d4c8b; border-radius: 12px; padding: clamp(8px, 1.6vw, 13px); box-shadow: inset 0 2px 3px #102e5a44; }
+    .board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(5px, 1vw, 9px); }
+    .slot { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 50%; background: #163f79; box-shadow: inset 0 3px 4px #102b4e99; transition: background .15s ease; }
+    .slot:focus-visible { outline: 3px solid #fff4cf; outline-offset: 2px; }
+    .slot:not(:disabled):hover { background: #1a477f; }
+    .disc { width: 86%; height: 86%; border-radius: 50%; display: block; background: #f5f2e9; box-shadow: inset 0 2px 3px #00000013; transition: transform .16s ease, box-shadow .16s ease; }
+    .disc.human { background: var(--red); box-shadow: inset 0 2px 2px #ffffff66, inset 0 -4px 5px #8e203080; }
+    .disc.ai { background: var(--yellow); box-shadow: inset 0 2px 2px #ffffff88, inset 0 -4px 5px #96630b55; }
+    .slot.winning .disc { outline: 3px solid #fffdf2; outline-offset: -1px; box-shadow: 0 0 0 3px #2b7775, inset 0 2px 2px #ffffff70; transform: scale(.91); }
+    .slot.last-move .disc { box-shadow: 0 0 0 3px #fffdf2, inset 0 2px 2px #ffffff70; }
+    .game-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 7px; padding: 9px 13px; border: 1px solid #d3ccbe; color: #33414b; background: #f8f5ed; font-size: 11px; font-weight: 750; transition: background .15s ease, border-color .15s ease; }
+    .btn:hover:not(:disabled) { border-color: #a6b7b0; background: #edf2ec; }
+    .btn.primary { color: white; background: #285b8f; border-color: #285b8f; }
+    .btn.primary:hover:not(:disabled) { background: #1e4b7c; }
+    .btn:disabled { opacity: .38; cursor: not-allowed; }
+    .key-hint { color: #7a858b; font-size: 10px; margin-left: auto; align-self: center; }
+    .under-board { margin-top: 13px; display: flex; justify-content: space-between; gap: 12px; color: #7a858b; font-size: 10px; }
+    .player-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .legend-disc { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+    .legend-disc.ai { background: var(--yellow); }
+    .side { display: grid; gap: 14px; }
+    .side-panel { padding: 17px; }
+    .side-panel h2 { margin: 0; font-size: 13px; }
+    .subhead { color: var(--muted); font-size: 11px; margin-top: 4px; line-height: 1.55; }
+    .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 15px; }
+    label { color: #4a5965; display: block; font-size: 10px; font-weight: 700; margin-bottom: 7px; }
+    select { width: 100%; min-width: 0; color: var(--text); background: #fffdf8; border: 1px solid #d6cec0; border-radius: 7px; padding: 9px 26px 9px 9px; outline: none; font-size: 11px; }
+    select:focus { border-color: var(--cyan); }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 14px; }
+    .metric { padding: 10px 8px; background: #f7f4ed; border: 1px solid #e4ddcf; border-radius: 8px; min-width: 0; }
+    .metric-label { color: #7a858b; font-size: 8px; line-height: 1.4; text-transform: uppercase; letter-spacing: .06em; }
+    .metric-value { font-size: 18px; font-weight: 800; margin-top: 6px; color: #26333d; overflow-wrap: anywhere; }
+    .metric-value.cyan { color: var(--cyan); }
+    .metric-value.yellow { color: #a8760a; }
+    .score-list { display: grid; gap: 10px; margin-top: 16px; }
+    .move-row { display: grid; grid-template-columns: 42px minmax(0,1fr) 58px; align-items: center; gap: 9px; }
+    .move-label { color: #485762; font-size: 10px; font-weight: 750; }
+    .move-track { height: 8px; background: #eee9de; border: 1px solid #e0d8c9; border-radius: 99px; overflow: hidden; }
+    .move-fill { height: 100%; width: 0%; background: #6baba1; border-radius: 99px; transition: width .3s ease; }
+    .move-row.best .move-fill { background: var(--yellow); }
+    .move-score { color: #6d7880; text-align: right; font-size: 10px; font-variant-numeric: tabular-nums; }
+    .move-row.best .move-score { color: #8b6109; font-weight: 800; }
+    .chart-empty { color: #7a858b; border: 1px dashed #d6cdbd; border-radius: 8px; padding: 15px; text-align: center; font-size: 11px; line-height: 1.6; }
+    .decision-box { margin-top: 13px; padding: 11px; border: 1px solid #d5e1dc; border-radius: 8px; background: #f0f5f1; }
+    .decision-title { color: #2b7775; font-size: 9px; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; margin-bottom: 6px; }
+    .decision-text { color: #435650; font-size: 11px; line-height: 1.6; }
+    .history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; min-height: 24px; }
+    .history-chip { background: #f6f2e9; border: 1px solid #e0d8ca; border-radius: 5px; padding: 5px 7px; font-size: 10px; color: #65727c; }
+    .history-chip.ai { border-color: #e3d39f; color: #886311; }
+    .history-chip.human { border-color: #eac4c7; color: #a63b47; }
+    details { margin-top: 12px; border-top: 1px solid #e3dccf; padding-top: 12px; }
+    summary { color: #34434d; cursor: pointer; font-size: 11px; font-weight: 750; }
+    .pseudo { margin: 12px 0 0; padding: 12px; border-radius: 7px; background: #f5f2e9; border: 1px solid #e1d8c8; color: #37535a; font: 10px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .footnote { margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line); color: #78827f; font-size: 10px; line-height: 1.7; text-align: center; }
+    .footnote strong { color: #4d5c58; }
+    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } .side { grid-template-columns: repeat(2, minmax(0, 1fr)); } .side-panel:last-child { grid-column: 1 / -1; } }
+    @media (max-width: 700px) { .page-title { grid-template-columns: 1fr; } .student-card { max-width: none; } }
+    @media (max-width: 640px) { .shell { padding: 15px 10px 22px; } .topbar { margin-bottom: 19px; } .top-badge { display: none; } .side { grid-template-columns: 1fr; } .side-panel:last-child { grid-column: auto; } .key-hint { width: 100%; margin-left: 0; } .under-board { flex-direction: column; } .score-card .value { font-size: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div><div class="eyebrow">AISC course project</div><div class="brand-name">Connect Four · Search Algorithms</div></div>
+      </div>
+      <div class="top-badge"><span class="pulse"></span> Human vs computer</div>
+    </header>
+
+    <section class="page-title">
+      <div>
+        <div class="eyebrow">Adversarial search · AISC</div>
+        <h1>Connect Four</h1>
+        <p class="subtitle">A classic four-in-a-row game with a computer opponent. Play a match, then see how Minimax compares possible moves and how Alpha-Beta Pruning skips branches that cannot change the decision.</p>
+        <div class="title-chip">ALGORITHM: MINIMAX + ALPHA-BETA PRUNING</div>
+      </div>
+      <aside class="student-card" aria-label="Project student details">
+        <div class="student-card-title">Project submitted by</div>
+        <div class="student-name">Siddhesh Singh Parmar</div>
+        <div class="student-details">
+          <div class="student-detail"><span>Registration no.</span><strong>2427030221</strong></div>
+          <div class="student-detail"><span>Section</span><strong>E</strong></div>
+          <div class="student-detail programme"><span>Programme</span><strong>B.Tech CSE Core</strong></div>
+        </div>
+      </aside>
+    </section>
+
+    <main class="layout">
+      <section class="panel game-panel" aria-label="Connect Four game">
+        <div class="section-head">
+          <div><div class="section-kicker">Live match</div><h2 style="margin-top:5px">Make your move</h2></div>
+          <div class="turn-label" id="turnLabel"><span class="turn-dot"></span><span id="turnText">Your turn</span></div>
+        </div>
+
+        <div class="scoreboard">
+          <div class="score-card human"><div class="label">You · Red</div><div class="value" id="humanWins">0</div></div>
+          <div class="score-card ai"><div class="label">AI · Gold</div><div class="value" id="aiWins">0</div></div>
+          <div class="score-card draw"><div class="label">Draws</div><div class="value" id="draws">0</div></div>
+        </div>
+
+        <div class="status" id="status" role="status" aria-live="polite"><span class="pulse"></span><span>Choose a column to drop your red disc.</span></div>
+        <div class="column-picks" id="columnPicks" aria-label="Choose a column"></div>
+        <div class="board-wrap"><div class="board" id="board" role="grid" aria-label="Connect Four board"></div></div>
+        <div class="game-controls">
+          <button class="btn primary" id="newGameBtn" type="button">↻ New match</button>
+          <button class="btn" id="undoBtn" type="button" disabled>↶ Undo turn</button>
+          <span class="key-hint">Tip: click a column or use ← → and Enter</span>
+        </div>
+        <div class="under-board">
+          <div class="player-legend"><span class="legend-item"><span class="legend-disc"></span>You play red</span><span class="legend-item"><span class="legend-disc ai"></span>AI plays gold</span></div>
+          <span>Connect 4 in any direction to win</span>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="AI algorithm dashboard">
+        <section class="panel side-panel">
+          <div class="section-head" style="margin-bottom:0"><div><div class="section-kicker">Agent configuration</div><h2 style="margin-top:5px">AI control panel</h2></div><span class="pulse"></span></div>
+          <div class="control-grid">
+            <div><label for="difficulty">Search depth</label><select id="difficulty"><option value="3">Beginner · depth 3</option><option value="4" selected>Standard · depth 4</option><option value="5">Advanced · depth 5</option><option value="6">Expert · depth 6</option></select></div>
+            <div><label for="starter">First move</label><select id="starter"><option value="human" selected>You start</option><option value="ai">AI starts</option></select></div>
+          </div>
+          <div class="subhead">Depth means how many moves ahead the search explores. Greater depth can improve play but requires more computation.</div>
+          <div class="metric-grid">
+            <div class="metric"><div class="metric-label">Nodes visited</div><div class="metric-value cyan" id="nodesMetric">—</div></div>
+            <div class="metric"><div class="metric-label">Branches pruned</div><div class="metric-value yellow" id="prunesMetric">—</div></div>
+            <div class="metric"><div class="metric-label">Search time</div><div class="metric-value" id="timeMetric">—</div></div>
+          </div>
+        </section>
+
+        <section class="panel side-panel">
+          <div class="section-head" style="margin-bottom:0"><div><div class="section-kicker">Move analysis</div><h2 style="margin-top:5px">Candidate move scores</h2></div><span class="section-kicker">AI perspective</span></div>
+          <div class="subhead">Each bar is the Minimax score for dropping a gold disc in that column. Higher scores are better for the AI.</div>
+          <div class="score-list" id="scoreList"><div class="chart-empty">The score chart appears when the AI searches for its next move.</div></div>
+          <div class="decision-box"><div class="decision-title">Why this move?</div><div class="decision-text" id="decisionText">Make a move to trigger the AI's search. The agent will compare legal columns and choose the best result it can find at the selected depth.</div></div>
+        </section>
+
+        <section class="panel side-panel">
+          <div class="section-head" style="margin-bottom:0"><div><div class="section-kicker">Search trace</div><h2 style="margin-top:5px">Recent moves</h2></div></div>
+          <div class="history" id="history"><span class="chart-empty" style="width:100%">Moves will appear here as the match progresses.</span></div>
+          <details>
+            <summary>View Minimax + Alpha-Beta pseudocode</summary>
+            <pre class="pseudo">MINIMAX(state, depth, α, β, maximizing):
+  if terminal(state) or depth = 0:
+    return evaluation(state)
+
+  if maximizing:
+    value = −∞
+    for each legal move:
+      value = max(value, MINIMAX(child, depth−1, α, β, false))
+      α = max(α, value)
+      if α ≥ β: break  // prune branch
+    return value
+  else:
+    value = +∞
+    for each legal move:
+      value = min(value, MINIMAX(child, depth−1, α, β, true))
+      β = min(β, value)
+      if β ≤ α: break  // prune branch
+    return value</pre>
+          </details>
+        </section>
+      </aside>
+    </main>
+    <div class="footnote"><strong>AISC project by Siddhesh Singh Parmar · Reg. No. 2427030221 · Section E · B.Tech CSE Core.</strong><br><strong>Project note:</strong> This is a heuristic depth-limited search. Terminal wins/losses take priority; non-terminal boards are scored using center control and groups of two or three discs. Move ordering checks center columns first, helping alpha-beta pruning cut more branches.</div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const ROWS = 6;
+    const COLS = 7;
+    const HUMAN = 1;
+    const AI = 2;
+    const CENTER_FIRST = [3, 2, 4, 1, 5, 0, 6];
+
+    let board = createBoard();
+    let currentTurn = 'human';
+    let gameOver = false;
+    let thinking = false;
+    let aiTimer = null;
+    let lastMove = null;
+    let winningCells = new Set();
+    let history = [];
+    let moveLog = [];
+    let appliedResult = null;
+    let keyboardColumn = 3;
+    let matchScore = { human: 0, ai: 0, draws: 0 };
+    let lastSearch = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function createBoard() {
+      return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    }
+
+    function cloneBoard(source) {
+      return source.map(row => row.slice());
+    }
+
+    function legalMoves(position) {
+      return CENTER_FIRST.filter(col => position[0][col] === 0);
+    }
+
+    function dropDisc(position, col, piece) {
+      for (let row = ROWS - 1; row >= 0; row--) {
+        if (position[row][col] === 0) {
+          position[row][col] = piece;
+          return row;
+        }
+      }
+      return -1;
+    }
+
+    function getWinningCells(position, piece) {
+      const cells = new Set();
+      const directions = [[0, 1], [1, 0], [1, 1], [-1, 1]];
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          for (const [dr, dc] of directions) {
+            const coords = [];
+            let valid = true;
+            for (let step = 0; step < 4; step++) {
+              const r = row + dr * step;
+              const c = col + dc * step;
+              if (r < 0 || r >= ROWS || c < 0 || c >= COLS || position[r][c] !== piece) {
+                valid = false;
+                break;
+              }
+              coords.push(`${r}-${c}`);
+            }
+            if (valid) coords.forEach(key => cells.add(key));
+          }
+        }
+      }
+      return cells;
+    }
+
+    function hasWon(position, piece) {
+      // Four-in-a-row test in horizontal, vertical and both diagonal directions.
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          if (position[row][col] !== piece) continue;
+          if (col + 3 < COLS && [0,1,2,3].every(k => position[row][col + k] === piece)) return true;
+          if (row + 3 < ROWS && [0,1,2,3].every(k => position[row + k][col] === piece)) return true;
+          if (row + 3 < ROWS && col + 3 < COLS && [0,1,2,3].every(k => position[row + k][col + k] === piece)) return true;
+          if (row - 3 >= 0 && col + 3 < COLS && [0,1,2,3].every(k => position[row - k][col + k] === piece)) return true;
+        }
+      }
+      return false;
+    }
+
+    function isDraw(position) {
+      return position[0].every(cell => cell !== 0);
+    }
+
+    function scoreWindow(window, piece) {
+      const opponent = piece === AI ? HUMAN : AI;
+      const own = window.filter(value => value === piece).length;
+      const other = window.filter(value => value === opponent).length;
+      const empty = window.filter(value => value === 0).length;
+      if (own && other) return 0;
+      let score = 0;
+      if (own === 4) score += 100000;
+      else if (own === 3 && empty === 1) score += 90;
+      else if (own === 2 && empty === 2) score += 14;
+      else if (own === 1 && empty === 3) score += 2;
+      if (other === 3 && empty === 1) score -= 110;
+      else if (other === 2 && empty === 2) score -= 16;
+      else if (other === 1 && empty === 3) score -= 2;
+      return score;
+    }
+
+    function evaluateBoard(position) {
+      // All scores are from the AI player's perspective: positive = good for AI.
+      let score = 0;
+      const center = Math.floor(COLS / 2);
+      for (let row = 0; row < ROWS; row++) {
+        if (position[row][center] === AI) score += 7;
+        else if (position[row][center] === HUMAN) score -= 7;
+      }
+
+      // Horizontal windows.
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS - 3; col++) {
+          score += scoreWindow([0,1,2,3].map(k => position[row][col + k]), AI);
+        }
+      }
+      // Vertical windows.
+      for (let row = 0; row < ROWS - 3; row++) {
+        for (let col = 0; col < COLS; col++) {
+          score += scoreWindow([0,1,2,3].map(k => position[row + k][col]), AI);
+        }
+      }
+      // Down-right diagonal windows.
+      for (let row = 0; row < ROWS - 3; row++) {
+        for (let col = 0; col < COLS - 3; col++) {
+          score += scoreWindow([0,1,2,3].map(k => position[row + k][col + k]), AI);
+        }
+      }
+      // Up-right diagonal windows.
+      for (let row = 3; row < ROWS; row++) {
+        for (let col = 0; col < COLS - 3; col++) {
+          score += scoreWindow([0,1,2,3].map(k => position[row - k][col + k]), AI);
+        }
+      }
+      return score;
+    }
+
+    function terminalScore(position, depth) {
+      if (hasWon(position, AI)) return 10000000 + depth;
+      if (hasWon(position, HUMAN)) return -10000000 - depth;
+      if (isDraw(position)) return 0;
+      return null;
+    }
+
+    function minimax(position, depth, alpha, beta, maximizingPlayer, stats) {
+      stats.nodes++;
+      const terminal = terminalScore(position, depth);
+      if (terminal !== null) return terminal;
+      if (depth === 0) return evaluateBoard(position);
+
+      const moves = legalMoves(position); // Center-first move ordering improves pruning.
+      if (maximizingPlayer) {
+        let value = -Infinity;
+        for (const col of moves) {
+          const child = cloneBoard(position);
+          dropDisc(child, col, AI);
+          value = Math.max(value, minimax(child, depth - 1, alpha, beta, false, stats));
+          alpha = Math.max(alpha, value);
+          if (alpha >= beta) {
+            stats.cutoffs++;
+            break;
+          }
+        }
+        return value;
+      }
+
+      let value = Infinity;
+      for (const col of moves) {
+        const child = cloneBoard(position);
+        dropDisc(child, col, HUMAN);
+        value = Math.min(value, minimax(child, depth - 1, alpha, beta, true, stats));
+        beta = Math.min(beta, value);
+        if (beta <= alpha) {
+          stats.cutoffs++;
+          break;
+        }
+      }
+      return value;
+    }
+
+    function findBestMove(position, depth) {
+      const stats = { nodes: 0, cutoffs: 0 };
+      const candidates = [];
+      let bestCol = null;
+      let bestScore = -Infinity;
+
+      // Use a full alpha-beta window for each root candidate so the displayed
+      // scores are comparable, rather than merely upper/lower bounds.
+      for (const col of legalMoves(position)) {
+        const child = cloneBoard(position);
+        dropDisc(child, col, AI);
+        const score = minimax(child, depth - 1, -Infinity, Infinity, false, stats);
+        candidates.push({ col, score });
+        if (score > bestScore) {
+          bestScore = score;
+          bestCol = col;
+        }
+      }
+      return { col: bestCol, score: bestScore, candidates, stats, depth };
+    }
+
+    function formatScore(score) {
+      if (score >= 10000000) return 'WIN';
+      if (score <= -10000000) return 'LOSS';
+      if (score > 999999 || score < -999999) return score > 0 ? 'WIN soon' : 'LOSS soon';
+      return score > 0 ? `+${score}` : `${score}`;
+    }
+
+    function prettyCount(value) {
+      return new Intl.NumberFormat('en-US').format(value);
+    }
+
+    function renderBoard() {
+      const boardElement = $('board');
+      boardElement.innerHTML = '';
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'slot';
+          button.dataset.col = String(col);
+          button.dataset.row = String(row);
+          button.setAttribute('role', 'gridcell');
+          button.setAttribute('aria-label', `Row ${row + 1}, column ${col + 1}${board[row][col] ? board[row][col] === HUMAN ? ', red disc' : ', gold disc' : ', empty'}`);
+          const disc = document.createElement('span');
+          disc.className = 'disc' + (board[row][col] === HUMAN ? ' human' : board[row][col] === AI ? ' ai' : '');
+          button.appendChild(disc);
+          if (winningCells.has(`${row}-${col}`)) button.classList.add('winning');
+          if (lastMove && lastMove.row === row && lastMove.col === col) button.classList.add('last-move');
+          button.disabled = currentTurn !== 'human' || gameOver || thinking || board[0][col] !== 0;
+          boardElement.appendChild(button);
+        }
+      }
+
+      const picks = $('columnPicks');
+      picks.innerHTML = '';
+      for (let col = 0; col < COLS; col++) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'column-btn';
+        button.textContent = `↓ ${col + 1}`;
+        button.setAttribute('aria-label', `Drop disc in column ${col + 1}`);
+        button.dataset.col = String(col);
+        button.disabled = currentTurn !== 'human' || gameOver || thinking || board[0][col] !== 0;
+        if (keyboardColumn === col) button.style.borderColor = '#2b7775';
+        picks.appendChild(button);
+      }
+    }
+
+    function renderStatus() {
+      const label = $('turnLabel');
+      const text = $('turnText');
+      label.className = 'turn-label' + (currentTurn === 'ai' ? ' ai' : '') + (thinking ? ' thinking' : '');
+      if (gameOver) {
+        text.textContent = 'Match over';
+      } else if (thinking) {
+        text.textContent = 'AI thinking';
+      } else {
+        text.textContent = currentTurn === 'human' ? 'Your turn' : 'AI turn';
+      }
+      const status = $('status');
+      let message = '<strong>Your move.</strong> Select a column to drop a red disc.';
+      if (thinking) message = '<strong>AI is searching…</strong> Minimax is evaluating future move sequences and alpha-beta pruning is cutting off branches.';
+      else if (currentTurn === 'ai' && !gameOver) message = '<strong>AI to move.</strong> The agent is preparing its next decision.';
+      else if (gameOver && appliedResult === 'human') message = '<strong>You win!</strong> Four red discs connected. Start a new match to play again.';
+      else if (gameOver && appliedResult === 'ai') message = '<strong>AI wins.</strong> Four gold discs connected. Review the move scores and try a new strategy.';
+      else if (gameOver && appliedResult === 'draws') message = '<strong>Draw.</strong> The board is full. Start a new match to play again.';
+      status.innerHTML = `<span class="pulse" style="background:${thinking ? 'var(--cyan)' : gameOver ? 'var(--yellow)' : currentTurn === 'ai' ? 'var(--yellow)' : 'var(--red)'}"></span><span>${message}</span>`;
+    }
+
+    function renderScoreboard() {
+      $('humanWins').textContent = String(matchScore.human);
+      $('aiWins').textContent = String(matchScore.ai);
+      $('draws').textContent = String(matchScore.draws);
+    }
+
+    function renderScores(search) {
+      const element = $('scoreList');
+      if (!search || !search.candidates.length) {
+        element.innerHTML = '<div class="chart-empty">The score chart appears when the AI searches for its next move.</div>';
+        return;
+      }
+      const candidates = search.candidates.slice().sort((a, b) => a.col - b.col);
+      const maxAbs = Math.max(1, ...candidates.map(item => Math.abs(item.score)));
+      const bestScore = Math.max(...candidates.map(item => item.score));
+      element.innerHTML = candidates.map(item => {
+        const width = Math.max(3, (Math.abs(item.score) / maxAbs) * 100);
+        const isBest = item.score === bestScore;
+        return `<div class="move-row ${isBest ? 'best' : ''}"><div class="move-label">Col ${item.col + 1}${isBest ? ' ★' : ''}</div><div class="move-track"><div class="move-fill" style="width:${width}%"></div></div><div class="move-score">${formatScore(item.score)}</div></div>`;
+      }).join('');
+    }
+
+    function renderMetrics(search) {
+      if (!search) {
+        $('nodesMetric').textContent = '—';
+        $('prunesMetric').textContent = '—';
+        $('timeMetric').textContent = '—';
+        return;
+      }
+      $('nodesMetric').textContent = prettyCount(search.stats.nodes);
+      $('prunesMetric').textContent = prettyCount(search.stats.cutoffs);
+      $('timeMetric').textContent = `${search.elapsed.toFixed(1)} ms`;
+    }
+
+    function renderDecision(search) {
+      const element = $('decisionText');
+      if (!search) {
+        element.textContent = 'Make a move to trigger the AI search. The agent will compare legal columns and choose the best result it can find at the selected depth.';
+        return;
+      }
+      const col = search.col + 1;
+      const candidate = search.candidates.find(item => item.col === search.col);
+      const score = candidate ? formatScore(candidate.score) : formatScore(search.score);
+      element.textContent = `Minimax selected column ${col}, with an evaluation of ${score}. It explored ${prettyCount(search.stats.nodes)} nodes and recorded ${prettyCount(search.stats.cutoffs)} alpha-beta cutoffs at depth ${search.depth}. The score favors AI wins and strong board patterns while penalizing opponent threats.`;
+    }
+
+    function renderHistory() {
+      const element = $('history');
+      if (!moveLog.length) {
+        element.innerHTML = '<span class="chart-empty" style="width:100%">Moves will appear here as the match progresses.</span>';
+        return;
+      }
+      element.innerHTML = moveLog.slice(-18).map((move, index) => {
+        const n = Math.max(1, moveLog.length - Math.min(18, moveLog.length)) + index + 1;
+        return `<span class="history-chip ${move.player === 'AI' ? 'ai' : 'human'}">${n}. ${move.player} · C${move.col + 1}</span>`;
+      }).join('');
+    }
+
+    function updateUndoButton() {
+      $('undoBtn').disabled = history.length === 0 || thinking;
+    }
+
+    function render() {
+      renderBoard();
+      renderStatus();
+      renderScoreboard();
+      renderScores(lastSearch);
+      renderMetrics(lastSearch);
+      renderDecision(lastSearch);
+      renderHistory();
+      updateUndoButton();
+    }
+
+    function saveSnapshot(mover) {
+      history.push({
+        board: cloneBoard(board),
+        currentTurn,
+        gameOver,
+        lastMove: lastMove ? { ...lastMove } : null,
+        winningCells: new Set(winningCells),
+        appliedResult,
+        moveLog: moveLog.slice(),
+        lastSearch,
+        mover
+      });
+    }
+
+    function applyMove(col, piece, moverName) {
+      if (board[0][col] !== 0 || gameOver) return false;
+      saveSnapshot(moverName);
+      const row = dropDisc(board, col, piece);
+      if (row < 0) return false;
+      lastMove = { row, col, piece };
+      moveLog.push({ player: moverName === 'human' ? 'You' : 'AI', col });
+      winningCells = getWinningCells(board, piece);
+
+      if (winningCells.size > 0) {
+        gameOver = true;
+        currentTurn = null;
+        appliedResult = moverName === 'human' ? 'human' : 'ai';
+        matchScore[appliedResult]++;
+        thinking = false;
+      } else if (isDraw(board)) {
+        gameOver = true;
+        currentTurn = null;
+        appliedResult = 'draws';
+        matchScore.draws++;
+        thinking = false;
+      } else {
+        currentTurn = moverName === 'human' ? 'ai' : 'human';
+      }
+      return true;
+    }
+
+    function playHumanMove(col) {
+      if (currentTurn !== 'human' || gameOver || thinking || col < 0 || col >= COLS || board[0][col] !== 0) return;
+      if (!applyMove(col, HUMAN, 'human')) return;
+      lastSearch = null;
+      render();
+      if (!gameOver) scheduleAI();
+    }
+
+    function scheduleAI() {
+      if (aiTimer) clearTimeout(aiTimer);
+      if (gameOver || currentTurn !== 'ai') return;
+      thinking = true;
+      render();
+      aiTimer = setTimeout(runAI, 100);
+    }
+
+    function runAI() {
+      aiTimer = null;
+      if (gameOver || currentTurn !== 'ai') {
+        thinking = false;
+        render();
+        return;
+      }
+      const depth = Number($('difficulty').value);
+      const started = performance.now();
+      const search = findBestMove(board, depth);
+      search.elapsed = performance.now() - started;
+      lastSearch = search;
+      thinking = false;
+      if (search.col !== null) applyMove(search.col, AI, 'ai');
+      render();
+    }
+
+    function newGame() {
+      if (aiTimer) clearTimeout(aiTimer);
+      aiTimer = null;
+      board = createBoard();
+      currentTurn = $('starter').value;
+      gameOver = false;
+      thinking = false;
+      lastMove = null;
+      winningCells = new Set();
+      history = [];
+      moveLog = [];
+      appliedResult = null;
+      lastSearch = null;
+      keyboardColumn = 3;
+      render();
+      if (currentTurn === 'ai') scheduleAI();
+    }
+
+    function undoTurn() {
+      if (thinking || history.length === 0) return;
+      if (aiTimer) clearTimeout(aiTimer);
+      aiTimer = null;
+
+      if (gameOver && appliedResult) {
+        matchScore[appliedResult] = Math.max(0, matchScore[appliedResult] - 1);
+      }
+
+      // If the AI already replied, roll back both the AI move and your preceding move.
+      const last = history[history.length - 1];
+      let restore = history.pop();
+      if (last.mover === 'ai' && history.length > 0 && history[history.length - 1].mover === 'human') {
+        restore = history.pop();
+      }
+      board = cloneBoard(restore.board);
+      currentTurn = restore.currentTurn;
+      gameOver = restore.gameOver;
+      lastMove = restore.lastMove ? { ...restore.lastMove } : null;
+      winningCells = new Set(restore.winningCells);
+      appliedResult = restore.appliedResult;
+      moveLog = restore.moveLog.slice();
+      lastSearch = restore.lastSearch;
+      thinking = false;
+      render();
+      // If the AI started the match, undoing its opening move restores the AI turn.
+      // Schedule it again so the game does not remain stuck waiting for an AI move.
+      if (currentTurn === 'ai' && !gameOver) scheduleAI();
+    }
+
+    $('columnPicks').addEventListener('click', event => {
+      const button = event.target.closest('button[data-col]');
+      if (button) playHumanMove(Number(button.dataset.col));
+    });
+    $('board').addEventListener('click', event => {
+      const slot = event.target.closest('button[data-col]');
+      if (slot) playHumanMove(Number(slot.dataset.col));
+    });
+    $('newGameBtn').addEventListener('click', newGame);
+    $('undoBtn').addEventListener('click', undoTurn);
+    $('difficulty').addEventListener('change', () => {
+      if (lastSearch) {
+        $('decisionText').textContent = `Search depth set to ${$('difficulty').value}. The new depth will be used on the AI's next move.`;
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        keyboardColumn = Math.max(0, keyboardColumn - 1);
+        renderBoard();
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        keyboardColumn = Math.min(COLS - 1, keyboardColumn + 1);
+        renderBoard();
+      } else if (event.key === 'Enter' && document.activeElement.tagName !== 'BUTTON' && !thinking && currentTurn === 'human') {
+        playHumanMove(keyboardColumn);
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
